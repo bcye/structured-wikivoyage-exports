@@ -1,0 +1,10 @@
+[project]
+name = "mapvoyage-extract"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mwparserfromhell>=0.6.6",
+    "wikitextparser>=0.56.3",
+]
