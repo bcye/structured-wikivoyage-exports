@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aiofiles>=24.1.0",
     "mwparserfromhell>=0.6.6",
     "wikitextparser>=0.56.3",
 ]
