@@ -1,5 +1,4 @@
 version = 1
-revision = 1
 requires-python = ">=3.12"
 
 [[package]]
@@ -18,6 +17,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "aiofiles" },
     { name = "mwparserfromhell" },
+    { name = "python-dotenv" },
     { name = "wikitextparser" },
 ]
 
@@ -25,6 +25,7 @@ dependencies = [
 requires-dist = [
     { name = "aiofiles", specifier = ">=24.1.0" },
     { name = "mwparserfromhell", specifier = ">=0.6.6" },
+    { name = "python-dotenv", specifier = ">=1.1.0" },
     { name = "wikitextparser", specifier = ">=0.56.3" },
 ]
 
@@ -39,6 +40,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/7a/39/6bd8d9678e8b3f57babee36b5a9540db8cccba1b81a64ed56576c653994b/mwparserfromhell-0.6.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2b75fae6d01c8fda19dbf127175122d7aa2964ef6454690e6868bbc3d80a7bc1", size = 201886 },
     { url = "https://files.pythonhosted.org/packages/8e/e1/026ea60ac66a8bc9314230cc0c1ad2bf496ceb16a3771d4fcfd6ecc25971/mwparserfromhell-0.6.6-cp312-cp312-win32.whl", hash = "sha256:19e9a4bcd85707c83172405eb2a9a046eff9d38dd7f1a56a5e5ecbbfef4a640a", size = 98748 },
     { url = "https://files.pythonhosted.org/packages/78/09/24c2f37524a3ebc3574975766748c7e4423ecefaa815c9fc4a324cbcf94a/mwparserfromhell-0.6.6-cp312-cp312-win_amd64.whl", hash = "sha256:cdc46c115b2495d4025920b7b30a6885a96d2b797ccc4009bf3cc02940ae55d3", size = 101071 },
+]
+
+[[package]]
+name = "python-dotenv"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/88/2c/7bb1416c5620485aa793f2de31d3df393d3686aa8a8506d11e10e13c5baf/python_dotenv-1.1.0.tar.gz", hash = "sha256:41f90bc6f5f177fb41f53e87666db362025010eb28f60a01c9143bfa33a2b2d5", size = 39920 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1e/18/98a99ad95133c6a6e2005fe89faedf294a748bd5dc803008059409ac9b1e/python_dotenv-1.1.0-py3-none-any.whl", hash = "sha256:d7c01d9e2293916c18baf562d95698754b0dbbb5e74d457c45d4f6561fb9d55d", size = 20256 },
 ]
 
 [[package]]

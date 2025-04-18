@@ -2,8 +2,9 @@
 from pathlib import Path
 import aiofiles
 from .base_handler import BaseHandler
+import json
 
-class FileSystemHandler(BaseHandler):
+class FilesystemHandler(BaseHandler):
     """
     Handler that writes files to the filesystem.
     """
@@ -36,7 +37,7 @@ class FileSystemHandler(BaseHandler):
         try:
             file_path = self.output_dir / f"{uid}.json"
             async with aiofiles.open(file_path, 'w') as f:
-                await f.write(entry)
+                await f.write(json.dumps(entry))
             return True
         except IOError as e:
             self.logger.error(f"Error writing entry {uid}: {e}")
