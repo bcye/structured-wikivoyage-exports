@@ -421,9 +421,7 @@ async def main():
 
     if not txt_files:
         print(f"No .txt files found under {input_dir}")
-    else:
-        for txt in txt_files:
-            await process_file(txt, parser, handler)
+        sys.exit(1)
 
     # 7) read concurrency setting
     try:
@@ -460,6 +458,10 @@ async def main():
     await asyncio.gather(*tasks)
 
     print("All done.")
+    
+    if hasattr(handler, "close"): 
+        await handler.close()
+
 
 
 if __name__ == "__main__":
