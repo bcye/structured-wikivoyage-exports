@@ -11,6 +11,8 @@ class BaseHandler(ABC):
     """
 
     logger = logging.getLogger(__name__)
+    _successful_writes = 0
+    _failed_writes = 0
 
     def __init__(self, fail_on_error: bool = True, **kwargs):
         """
@@ -48,8 +50,10 @@ class BaseHandler(ABC):
         success = await self._write_entry(entry, uid)
         if success:
             self.logger.debug(f"Successfully wrote entry with UID {uid}")
+            self._successful_writes += 1
         else:
             self.logger.error(f"Failed to write entry with UID {uid}")
+            self._failed_writes += 1
             if self.fail_on_error:
                 raise Exception(f"Failed to write entry with UID {uid}")
 
@@ -58,4 +62,4 @@ class BaseHandler(ABC):
         """
         Closes the handler. This method should be overridden by subclasses if they need to perform any cleanup operations.
         """
-        pass
+        self.logger.info(f"Wrote {self._successful_writes+self._failed_writes} entries: {self._successful_writes} successful, {self._failed_writes} failed.")
