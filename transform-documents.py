@@ -349,7 +349,6 @@ class WikivoyageParser:
 
 async def process_file(
     input_file: Path,
-    parser: WikivoyageParser,
     handler,
 ) -> None:
     """
@@ -358,6 +357,7 @@ async def process_file(
     """
     
     text = input_file.read_text(encoding="utf-8")
+    parser = WikivoyageParser()
     entry = parser.parse(text)  # assume returns a dict
     uid = input_file.stem
 
@@ -374,12 +374,15 @@ def gather_handler_kwargs(handler_name: str) -> dict:
     for env_key, val in os.environ.items():
         if not env_key.startswith(prefix):
             continue
-        param = env_key[len(prefix) :].lower()
-        # try to cast ints
+        param = env_key.replace(prefix, "").lower()
+        # cast ints
         if val.isdigit():
             val = int(val)
+        # cast bools
+        elif val.lower() in ("true", "false"):
+            val = val.lower() == "true"
         kwargs[param] = val
-
+    print(f"Handler kwargs: {kwargs}")
     return kwargs
 
 async def main():
@@ -412,20 +415,15 @@ async def main():
     # 5. Instantiate
     handler = HandlerCls(**handler_kwargs)
 
-    # 6. Prepare parser
-    parser = WikivoyageParser()
-
-    # 7. Which dir to walk?
+    # 6. Which dir to walk?
     input_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(".")
     txt_files = list(input_dir.rglob("*.txt"))
 
     if not txt_files:
         print(f"No .txt files found under {input_dir}")
-    else:
-        for txt in txt_files:
-            await process_file(txt, parser, handler)
+        sys.exit(1)
 
-    # 7) read concurrency setting
+    # 7. read concurrency setting
     try:
         max_conc = int(os.getenv("MAX_CONCURRENT", "0"))
     except ValueError:
@@ -436,11 +434,11 @@ async def main():
         print("Error: MAX_CONCURRENT must be >= 0")
         sys.exit(1)
 
-    # 8) schedule tasks
+    # 8. schedule tasks
     if max_conc == 0:
         # unbounded
         tasks = [
-            asyncio.create_task(process_file(txt, parser, handler))
+            asyncio.create_task(process_file(txt, handler))
             for txt in txt_files
         ]
     else:
@@ -449,15 +447,17 @@ async def main():
 
         async def bounded(txt):
             async with sem:
-                return await process_file(txt, parser, handler)
+                return await process_file(txt, handler)
 
         tasks = [
             asyncio.create_task(bounded(txt))
             for txt in txt_files
         ]
 
-    # 9) run them all
+    # 9. run them all
     await asyncio.gather(*tasks)
+    await handler.close()
+
 
     print("All done.")
 
