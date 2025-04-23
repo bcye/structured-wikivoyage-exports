@@ -52,3 +52,10 @@ class BaseHandler(ABC):
             self.logger.error(f"Failed to write entry with UID {uid}")
             if self.fail_on_error:
                 raise Exception(f"Failed to write entry with UID {uid}")
+
+
+    async def close(self):
+        """
+        Closes the handler. This method should be overridden by subclasses if they need to perform any cleanup operations.
+        """
+        pass

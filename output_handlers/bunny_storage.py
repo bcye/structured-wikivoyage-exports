@@ -12,27 +12,33 @@ class BunnyStorageHandler(BaseHandler):
         keepalive_timeout: int = 75,
     ):
         super().__init__(fail_on_error=fail_on_error)
-        self.region = region
-        self.base_path = base_path
-        self.api_key = api_key
-
-        # no explicit 'limit'; use the default (100)
-        self._connector = aiohttp.TCPConnector(
-            keepalive_timeout=keepalive_timeout
-        )
-        self._session = aiohttp.ClientSession(connector=self._connector)
-
-    async def _write_entry(self, entry: dict, uid: str) -> bool:
-        url = f"https://{self.region}.bunnycdn.com/{self.base_path}/{uid}.json"
-        headers = {
-            "AccessKey": self.api_key,
+        self.base_url = f"https://{region}.bunnycdn.com/{base_path}"
+        self.headers = {
+            "AccessKey": api_key,
             "Content-Type": "application/json",
             "accept": "application/json",
         }
+
+        # initialized later, in a guaranteed async context
+        self._connector = None
+        self._session = None
+        self._keepalive_timeout = keepalive_timeout
+
+    async def setup_connector(self):
+        if self._session is None:
+            self._connector = aiohttp.TCPConnector(
+                # limit is implicitly set to 100
+                keepalive_timeout = self._keepalive_timeout,
+            )
+            self._session = aiohttp.ClientSession(connector=self._connector)
+
+    async def _write_entry(self, entry: dict, uid: str) -> bool:
+        await self.setup_connector()
         payload = json.dumps(entry).encode("utf-8")
+        url = f"{self.base_url}/{uid}.json"
 
         try:
-            async with self._session.put(url, data=payload, headers=headers) as resp:
+            async with self._session.put(url, data=payload, headers=self.headers) as resp:
                 if resp.status in (200, 201, 204):
                     return True
                 body = await resp.text()
