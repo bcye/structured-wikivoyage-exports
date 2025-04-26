@@ -6,7 +6,7 @@ Small utility to convert the wikitext data from the Wikivoyage dumps into a stru
 
 ### Docker
 
-This script is intended to be run with docker. A docker image is [available from the GitHub registry](). For example, you may run it using the filesystem handler with `docker run -e HANDLER=filesystem -e HANDLER_FILESYSTEM_OUTPUT_DIR=/output -v ./output:/output ghcr.io/bcye/structured-wikivoyage-exports`. For all the different options, refer to [the docs](docs).
+This script is intended to be run with docker. A docker image is [available from the GitHub registry](). For example, you may run it using the filesystem handler with `docker run -e HANDLER=filesystem -e HANDLER_FILESYSTEM_OUTPUT_DIR=/output -v ./output:/output --ulimit nofile=65536:65536 ghcr.io/bcye/structured-wikivoyage-exports`. For all the different options, refer to [the docs](docs).
 
 ### Types
 
