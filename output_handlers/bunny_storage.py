@@ -52,3 +52,4 @@ class BunnyStorageHandler(BaseHandler):
     async def close(self):
         await self._session.close()
         await self._connector.close()
+        await super().close()

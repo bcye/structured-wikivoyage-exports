@@ -5,8 +5,9 @@ import asyncio
 import importlib
 import logging
 from dotenv import load_dotenv
-
 from parser import WikivoyageParser
+
+logger = logging.getLogger(__name__)
 
 async def process_file(
     input_file: Path,
@@ -43,7 +44,7 @@ def gather_handler_kwargs(handler_name: str) -> dict:
         elif val.lower() in ("true", "false"):
             val = val.lower() == "true"
         kwargs[param] = val
-    print(f"Handler kwargs: {kwargs}")
+    logger.debug(f"Handler kwargs: {kwargs}")
     return kwargs
 
 async def main():
@@ -80,19 +81,17 @@ async def main():
     txt_files = list(input_dir.rglob("*.txt"))
 
     if not txt_files:
-        print(f"No .txt files found under {input_dir}")
+        logger.info(f"No .txt files found under {input_dir}")
         sys.exit(1)
 
     # 7. read concurrency setting
     try:
         max_conc = int(os.getenv("MAX_CONCURRENT", "0"))
     except ValueError:
-        print("Error: MAX_CONCURRENT must be an integer")
-        sys.exit(1)
+        raise ValueError("MAX_CONCURRENT must be an integer")
 
     if max_conc < 0:
-        print("Error: MAX_CONCURRENT must be >= 0")
-        sys.exit(1)
+        raise ValueError("MAX_CONCURRENT must be >= 0")
 
     # 8. schedule tasks
     if max_conc == 0:
@@ -119,7 +118,7 @@ async def main():
     await handler.close()
 
 
-    print("All done.")
+    logger.info("All done.")
 
 
 if __name__ == "__main__":
