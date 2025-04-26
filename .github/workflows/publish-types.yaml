@@ -21,6 +21,6 @@ jobs:
           node-version: "20.x"
           registry-url: "https://registry.npmjs.org"
       # no npm ci as no dependencies exist
-      - run: npm publish --provenance --access public
+      - run: cd types && npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
