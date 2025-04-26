@@ -1,29 +1,19 @@
+#!/usr/bin/env python3
 import os
-from pathlib import Path
 import sys
+import re
+import zlib
+import bz2
 import asyncio
-import importlib
 import logging
+import importlib
+import xml.sax
+from pathlib import Path
 from dotenv import load_dotenv
+import aiohttp
 from parser import WikivoyageParser
 
 logger = logging.getLogger(__name__)
-
-async def process_file(
-    input_file: Path,
-    handler,
-) -> None:
-    """
-    Parse one wiki file and hand the resulting entry off to our handler.
-    Uses the filename (sans suffix) as the unique UID.
-    """
-    
-    text = input_file.read_text(encoding="utf-8")
-    parser = WikivoyageParser()
-    entry = parser.parse(text)  # assume returns a dict
-    uid = input_file.stem
-
-    await handler.write_entry(entry, uid)
 
 def gather_handler_kwargs(handler_name: str) -> dict:
     """
@@ -47,12 +37,154 @@ def gather_handler_kwargs(handler_name: str) -> dict:
     logger.debug(f"Handler kwargs: {kwargs}")
     return kwargs
 
-async def main():
+async def fetch_mappings() -> dict[str, str]:
+    """
+    Download and gunzip the page_props SQL dump, extract
+    page→wikibase_item mappings.
+    """
+    sql_url = (
+        "https://dumps.wikimedia.org/"
+        "enwikivoyage/latest/"
+        "enwikivoyage-latest-page_props.sql.gz"
+    )
+    # decompress gzip
+    decomp = zlib.decompressobj(16 + zlib.MAX_WBITS)
+    # regex for tuples: (page,'prop','value',NULL_or_number)
+    tuple_re = re.compile(r"\((\d+),'([^']+)','([^']+)',(NULL|[\d\.]+)\)")
+    buffer = ""
+    mappings: dict[str, str] = {}
 
+    async with aiohttp.ClientSession() as session:
+        async with session.get(sql_url) as resp:
+            resp.raise_for_status()
+            async for chunk in resp.content.iter_chunked(1024 * 1024):
+                data = decomp.decompress(chunk)
+                if not data:
+                    continue
+                text = data.decode("utf-8", errors="ignore")
+                buffer += text
+                for m in tuple_re.finditer(buffer):
+                    page_id, prop, value = m.group(1), m.group(2), m.group(3)
+                    if prop == "wikibase_item":
+                        mappings[page_id] = value
+                # keep tail to handle split tuples
+                if len(buffer) > 1000:
+                    buffer = buffer[-1000:]
+    return mappings
+
+class WikiDumpHandler(xml.sax.ContentHandler):
+    """
+    SAX handler that, for each <page> whose <id> is in mappings,
+    collects the <text> and schedules an async task to parse
+    and write via the user‐supplied handler.
+    """
+
+    def __init__(self, mappings, handler, max_concurrent):
+        super().__init__()
+        self.mappings = mappings
+        self.handler = handler
+        self.sem = (
+            asyncio.Semaphore(max_concurrent) if max_concurrent > 0 else None
+        )
+        self.tasks: list[asyncio.Task] = []
+
+        self.currentTag: str | None = None
+        self.inPage = False
+        self.inRevision = False
+        self.inText = False
+        self.currentPageId: str | None = None
+        self.currentText: list[str] = []
+
+    def startElement(self, name, attrs):
+        self.currentTag = name
+        if name == "page":
+            self.inPage = True
+            self.currentPageId = None
+            self.currentText = []
+        elif name == "revision":
+            self.inRevision = True
+        elif name == "text" and self.inRevision:
+            self.inText = True
+
+    def endElement(self, name):
+        if name == "page":
+            pid = self.currentPageId
+            if pid and pid in self.mappings:
+                wd_id = self.mappings[pid]
+                text = "".join(self.currentText)
+                # schedule processing
+                if self.sem:
+                    task = asyncio.create_task(self._bounded_process(text, wd_id))
+                else:
+                    task = asyncio.create_task(self._process(text, wd_id))
+                self.tasks.append(task)
+            # reset
+            self.inPage = self.inRevision = self.inText = False
+            self.currentPageId = None
+            self.currentText = []
+        elif name == "revision":
+            self.inRevision = False
+        elif name == "text":
+            self.inText = False
+        self.currentTag = None
+
+    def characters(self, content):
+        if not content.strip():
+            return
+        if (
+            self.currentTag == "id"
+            and self.inPage
+            and not self.inRevision
+            and not self.currentPageId
+        ):
+            self.currentPageId = content.strip()
+        elif self.inText:
+            self.currentText.append(content)
+
+    async def _process(self, text: str, uid: str):
+        parser = WikivoyageParser()
+        entry = parser.parse(text)
+        await self.handler.write_entry(entry, uid)
+
+    async def _bounded_process(self, text: str, uid: str):
+        # Only run N at once
+        async with self.sem:
+            await self._process(text, uid)
+
+async def process_dump(
+    mappings: dict[str, str], handler, max_concurrent: int
+):
+    """
+    Stream-download the bzip2-compressed XML dump and feed to SAX.
+    """
+    xml_url = (
+        "https://dumps.wikimedia.org/"
+        "enwikivoyage/latest/"
+        "enwikivoyage-latest-pages-articles.xml.bz2"
+    )
+    decomp = bz2.BZ2Decompressor()
+    sax_parser = xml.sax.make_parser()
+    dump_handler = WikiDumpHandler(mappings, handler, max_concurrent)
+    sax_parser.setContentHandler(dump_handler)
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(xml_url) as resp:
+            resp.raise_for_status()
+            async for chunk in resp.content.iter_chunked(1024 * 1024):
+                data = decomp.decompress(chunk)
+                if not data:
+                    continue
+                text = data.decode("utf-8", errors="ignore")
+                sax_parser.feed(text)
+    sax_parser.close()
+    if dump_handler.tasks:
+        await asyncio.gather(*dump_handler.tasks)
+
+async def main():
     # 1. Which handler to load?
     handler_name = os.getenv("HANDLER")
     if not handler_name:
-        print("Error: set ENV HANDLER (e.g. 'filesystem')")
+        logger.error("Error: set ENV HANDLER (e.g. 'filesystem')")
         sys.exit(1)
 
     # 2. Dynamic import
@@ -60,15 +192,17 @@ async def main():
     try:
         mod = importlib.import_module(module_path)
     except ImportError as e:
-        print(f"Error loading handler module {module_path}: {e}")
+        logger.error(f"Error loading handler module {module_path}: {e}")
         sys.exit(1)
 
     # 3. Find the class: e.g. "sftp" → "SftpHandler"
     class_name = handler_name.title().replace("_", "") + "Handler"
     if not hasattr(mod, class_name):
-        print(f"{module_path} defines no class {class_name}")
+        logger.error(f"{module_path} defines no class {class_name}")
         sys.exit(1)
     HandlerCls = getattr(mod, class_name)
+
+    logger.info(f"Using handler from {module_path}")
 
     # 4. Build kwargs from ENV
     handler_kwargs = gather_handler_kwargs(handler_name)
@@ -76,15 +210,7 @@ async def main():
     # 5. Instantiate
     handler = HandlerCls(**handler_kwargs)
 
-    # 6. Which dir to walk?
-    input_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(".")
-    txt_files = list(input_dir.rglob("*.txt"))
-
-    if not txt_files:
-        logger.info(f"No .txt files found under {input_dir}")
-        sys.exit(1)
-
-    # 7. read concurrency setting
+    # 6. read concurrency setting
     try:
         max_conc = int(os.getenv("MAX_CONCURRENT", "0"))
     except ValueError:
@@ -93,31 +219,18 @@ async def main():
     if max_conc < 0:
         raise ValueError("MAX_CONCURRENT must be >= 0")
 
-    # 8. schedule tasks
-    if max_conc == 0:
-        # unbounded
-        tasks = [
-            asyncio.create_task(process_file(txt, handler))
-            for txt in txt_files
-        ]
-    else:
-        # bounded by semaphore
-        sem = asyncio.Semaphore(max_conc)
 
-        async def bounded(txt):
-            async with sem:
-                return await process_file(txt, handler)
+    # 7. Fetch mappings
+    logger.info("Fetching mappings from SQL dump…")
+    mappings = await fetch_mappings()
+    logger.info(f"Got {len(mappings)} wikibase_item mappings.")
 
-        tasks = [
-            asyncio.create_task(bounded(txt))
-            for txt in txt_files
-        ]
+    # 8. Stream & split the XML dump
+    logger.info("Processing XML dump…")
+    await process_dump(mappings, handler, max_conc)
 
-    # 9. run them all
-    await asyncio.gather(*tasks)
+    # 5. Finish up
     await handler.close()
-
-
     logger.info("All done.")
 
 
