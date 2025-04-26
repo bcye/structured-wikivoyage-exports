@@ -4,6 +4,10 @@ Small utility to convert the wikitext data from the Wikivoyage dumps into a stru
 
 ## Installation
 
-
 ## Documentation
+
 See [docs](docs) for more information on how to use this utility.
+
+## Testing
+
+Run `PYTHONPATH=. pytest` from inside the venv
