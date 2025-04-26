@@ -1,6 +1,6 @@
 {
   "name": "@bcye/structured-wikivoyage-types",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Types to use when consuming json trees from the structured-wikivoyage-exports project",
   "keywords": [],
   "contributors": [
