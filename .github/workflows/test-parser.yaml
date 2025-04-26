@@ -17,7 +17,7 @@ jobs:
           python-version-file: ".python-version"
 
       - name: Install the project
-        run: uv export > requirements.txt && pip install -r requirements.txt
+        run: uv sync --locked --dev
 
       - name: Run tests
-        run: PYTHONPATH=. pytest
+        run: PYTHONPATH=. uv run pytest
