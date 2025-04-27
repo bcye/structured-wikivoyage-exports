@@ -15,12 +15,21 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 10
+          run_install: false
+
       # Setup .npmrc file to publish to npm
       - uses: actions/setup-node@v4
         with:
           node-version: "20.x"
+          cache: "pnpm"
           registry-url: "https://registry.npmjs.org"
-      # no npm ci as no dependencies exist
-      - run: cd types && npm publish --provenance --access public
+
+      - run: cd types && pnpm install --frozen-lockfile
+      - run: cd types && pnpm tsc
+      - run: cd types && pnpm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
