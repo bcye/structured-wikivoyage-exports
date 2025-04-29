@@ -7,6 +7,10 @@ on:
     tags:
       - "types/*"
 
+defaults:
+  run:
+    working-directory: types
+
 jobs:
   build:
     runs-on: ubuntu-latest
