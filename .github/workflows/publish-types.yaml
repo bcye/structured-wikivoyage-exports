@@ -33,8 +33,8 @@ jobs:
           cache-dependency-path: "types/pnpm-lock.yaml"
           registry-url: "https://registry.npmjs.org"
 
-      - run: cd types && pnpm install --frozen-lockfile
-      - run: cd types && pnpm tsc
-      - run: cd types && pnpm publish --provenance --access public --no-git-checks
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm tsc
+      - run: pnpm publish --provenance --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
