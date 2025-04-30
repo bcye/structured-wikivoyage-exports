@@ -14,8 +14,10 @@ Run `PYTHONPATH=. pytest` from inside the venv
 
 ## License
 
+### Code
 (c) 2025 bcye and moll-re
 
-Licensed under the AGPLv3 license, refer to [LICENSE](LICENSE) for the full license text.
+All code and documentation unless otherwise stated is licensed under the AGPLv3 license, refer to [LICENSE](LICENSE) for the full license text.
 
-Files in the `docs/example` and `tests/fixtures` directory are the source file (.txt) and derivatives (.json) of the Boston Article on Wikivoyage and licensed under CC BY-SA 4.0. A [list of contributors is available on the original article](https://en.wikivoyage.org/w/index.php?title=Boston&action=history)
+### Examples
+Files in the `docs/example` and `tests/fixtures` as well as parts of the test scripts directory are excerpts, copies or derivatives of the Boston Article on Wikivoyage and licensed under CC BY-SA 4.0. A [list of contributors is available on the original article](https://en.wikivoyage.org/w/index.php?title=Boston&action=history).
