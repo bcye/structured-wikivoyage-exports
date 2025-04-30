@@ -129,16 +129,18 @@ class WikiDumpHandler(xml.sax.ContentHandler):
         self.currentTag = None
 
     def characters(self, content):
-        if not content.strip():
-            return
+        # Only filter whitespace for ID fields, preserve all content for text
         if (
             self.currentTag == "id"
             and self.inPage
             and not self.inRevision
             and not self.currentPageId
         ):
-            self.currentPageId = content.strip()
+            content_stripped = content.strip()
+            if content_stripped:  # Only process non-empty ID content
+                self.currentPageId = content_stripped
         elif self.inText:
+            # Always append text content, even if it's just whitespace or newlines
             self.currentText.append(content)
 
     async def _process(self, text: str, uid: str):
