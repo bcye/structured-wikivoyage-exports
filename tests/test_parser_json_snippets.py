@@ -1,7 +1,7 @@
 import json
 import os
 import pytest
-from parser import WikivoyageParser
+from transformers import WikivoyageParser
 
 def dump(obj):
     # canonical JSON for deep compare
