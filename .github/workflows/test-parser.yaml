@@ -1,0 +1,23 @@
+on:
+  pull_request:
+
+jobs:
+  run-tests:
+    name: Unit-Test Parser
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install the project
+        run: uv sync --locked --dev
+
+      - name: Run tests
+        run: PYTHONPATH=. uv run pytest
