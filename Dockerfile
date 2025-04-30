@@ -7,4 +7,4 @@ RUN uv sync --frozen
 
 COPY . .
 
-CMD ["uv", "run", "transform-documents.py"]
+CMD ["uv", "run", "main.py"]
