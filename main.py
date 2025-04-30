@@ -1,29 +1,20 @@
+#!/usr/bin/env python3
 import os
-from pathlib import Path
 import sys
+import re
+import zlib
+import bz2
 import asyncio
-import importlib
 import logging
+import importlib
+import xml.sax
+from pathlib import Path
 from dotenv import load_dotenv
-from parser import WikivoyageParser
+import aiohttp
+from transformers import fetch_mappings, WikiDumpHandler, WikivoyageParser
+
 
 logger = logging.getLogger(__name__)
-
-async def process_file(
-    input_file: Path,
-    handler,
-) -> None:
-    """
-    Parse one wiki file and hand the resulting entry off to our handler.
-    Uses the filename (sans suffix) as the unique UID.
-    """
-    
-    text = input_file.read_text(encoding="utf-8")
-    parser = WikivoyageParser()
-    entry = parser.parse(text)  # assume returns a dict
-    uid = input_file.stem
-
-    await handler.write_entry(entry, uid)
 
 def gather_handler_kwargs(handler_name: str) -> dict:
     """
@@ -47,12 +38,41 @@ def gather_handler_kwargs(handler_name: str) -> dict:
     logger.debug(f"Handler kwargs: {kwargs}")
     return kwargs
 
-async def main():
 
+async def process_dump(
+    mappings: dict[str, str], handler, max_concurrent: int
+):
+    """
+    Stream-download the bzip2-compressed XML dump and feed to SAX.
+    """
+    xml_url = (
+        "https://dumps.wikimedia.org/"
+        "enwikivoyage/latest/"
+        "enwikivoyage-latest-pages-articles.xml.bz2"
+    )
+    decomp = bz2.BZ2Decompressor()
+    sax_parser = xml.sax.make_parser()
+    dump_handler = WikiDumpHandler(mappings, handler, max_concurrent)
+    sax_parser.setContentHandler(dump_handler)
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(xml_url) as resp:
+            resp.raise_for_status()
+            async for chunk in resp.content.iter_chunked(1024 * 1024):
+                data = decomp.decompress(chunk)
+                if not data:
+                    continue
+                text = data.decode("utf-8", errors="ignore")
+                sax_parser.feed(text)
+    sax_parser.close()
+    if dump_handler.tasks:
+        await asyncio.gather(*dump_handler.tasks)
+
+async def main():
     # 1. Which handler to load?
     handler_name = os.getenv("HANDLER")
     if not handler_name:
-        print("Error: set ENV HANDLER (e.g. 'filesystem')")
+        logger.error("Error: set ENV HANDLER (e.g. 'filesystem')")
         sys.exit(1)
 
     # 2. Dynamic import
@@ -60,15 +80,17 @@ async def main():
     try:
         mod = importlib.import_module(module_path)
     except ImportError as e:
-        print(f"Error loading handler module {module_path}: {e}")
+        logger.error(f"Error loading handler module {module_path}: {e}")
         sys.exit(1)
 
     # 3. Find the class: e.g. "sftp" → "SftpHandler"
     class_name = handler_name.title().replace("_", "") + "Handler"
     if not hasattr(mod, class_name):
-        print(f"{module_path} defines no class {class_name}")
+        logger.error(f"{module_path} defines no class {class_name}")
         sys.exit(1)
     HandlerCls = getattr(mod, class_name)
+
+    logger.info(f"Using handler from {module_path}")
 
     # 4. Build kwargs from ENV
     handler_kwargs = gather_handler_kwargs(handler_name)
@@ -76,15 +98,7 @@ async def main():
     # 5. Instantiate
     handler = HandlerCls(**handler_kwargs)
 
-    # 6. Which dir to walk?
-    input_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(".")
-    txt_files = list(input_dir.rglob("*.txt"))
-
-    if not txt_files:
-        logger.info(f"No .txt files found under {input_dir}")
-        sys.exit(1)
-
-    # 7. read concurrency setting
+    # 6. read concurrency setting
     try:
         max_conc = int(os.getenv("MAX_CONCURRENT", "0"))
     except ValueError:
@@ -93,31 +107,18 @@ async def main():
     if max_conc < 0:
         raise ValueError("MAX_CONCURRENT must be >= 0")
 
-    # 8. schedule tasks
-    if max_conc == 0:
-        # unbounded
-        tasks = [
-            asyncio.create_task(process_file(txt, handler))
-            for txt in txt_files
-        ]
-    else:
-        # bounded by semaphore
-        sem = asyncio.Semaphore(max_conc)
 
-        async def bounded(txt):
-            async with sem:
-                return await process_file(txt, handler)
+    # 7. Fetch mappings
+    logger.info("Fetching mappings from SQL dump…")
+    mappings = await fetch_mappings()
+    logger.info(f"Got {len(mappings)} wikibase_item mappings.")
 
-        tasks = [
-            asyncio.create_task(bounded(txt))
-            for txt in txt_files
-        ]
+    # 8. Stream & split the XML dump
+    logger.info("Processing XML dump…")
+    await process_dump(mappings, handler, max_conc)
 
-    # 9. run them all
-    await asyncio.gather(*tasks)
+    # 5. Finish up
     await handler.close()
-
-
     logger.info("All done.")
 
 
