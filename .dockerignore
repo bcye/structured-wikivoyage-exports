@@ -1,8 +1,8 @@
 .env
-
-# NODE
-node_modules
-
-# PYTHON
 __pycache__
 .venv
+.pytest_cache
+docs
+node_modules
+output
+sketching

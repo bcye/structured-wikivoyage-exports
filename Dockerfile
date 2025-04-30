@@ -1,12 +1,10 @@
-FROM node:22
+FROM ghcr.io/astral-sh/uv:0.6-python3.12-bookworm
 
 WORKDIR /app
 
-COPY package.json .
-COPY package-lock.json .
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen
 
-RUN npm install
+COPY . .
 
-COPY index.ts .
-
-CMD [ "node", "--max-old-space-size=4096", "--experimental-strip-types", "index.ts" ]
+CMD ["uv", "run", "main.py"]
