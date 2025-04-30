@@ -1,0 +1,29 @@
+{
+  "name": "@bcye/structured-wikivoyage-types",
+  "version": "0.2.5",
+  "description": "Types to use when consuming json trees from the structured-wikivoyage-exports project",
+  "keywords": [],
+  "contributors": [
+    "bcye",
+    "moll-re"
+  ],
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bcye/structured-wikivoyage-exports.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bcye/structured-wikivoyage-exports/issues"
+  },
+  "homepage": "https://github.com/bcye/structured-wikivoyage-exports#readme",
+  "files": [
+    "dist/index.d.ts",
+    "dist/index.js"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "private": false,
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
