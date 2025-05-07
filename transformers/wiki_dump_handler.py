@@ -26,6 +26,7 @@ class WikiDumpHandler(xml.sax.ContentHandler):
         self.inRevision = False
         self.inText = False
         self.currentPageId: str | None = None
+        self.currentTitle: str | None = None
         self.currentText: list[str] = []
 
     def startElement(self, name, attrs):
@@ -34,6 +35,7 @@ class WikiDumpHandler(xml.sax.ContentHandler):
             logger.debug("start page")
             self.inPage = True
             self.currentPageId = None
+            self.currentTitle = None
             self.currentText = []
         elif name == "revision":
             logger.debug("start revision")
@@ -49,18 +51,20 @@ class WikiDumpHandler(xml.sax.ContentHandler):
             if pid and pid in self.mappings:
                 wd_id = self.mappings[pid]
                 text = "".join(self.currentText)
+                title = self.currentTitle
                 logger.debug(f"scheduled {wd_id} for handling")
                 # schedule processing
                 if self.sem:
-                    task = asyncio.create_task(self._bounded_process(text, wd_id))
+                    task = asyncio.create_task(self._bounded_process(text, wd_id, title))
                 else:
-                    task = asyncio.create_task(self._process(text, wd_id))
+                    task = asyncio.create_task(self._process(text, wd_id, title))
                 self.tasks.append(task)
             else:
                 logger.debug(f"page {pid} without wikidata id, skipping...")
             # reset
             self.inPage = self.inRevision = self.inText = False
             self.currentPageId = None
+            self.currentTitle = None
             self.currentText = []
         elif name == "revision":
             logger.debug("end revision")
@@ -81,16 +85,22 @@ class WikiDumpHandler(xml.sax.ContentHandler):
             content_stripped = content.strip()
             if content_stripped:  # Only process non-empty ID content
                 self.currentPageId = content_stripped
+        elif self.currentTag == "title" and self.inPage:
+            if self.currentTitle is None:
+                self.currentTitle = content
+            else:
+                self.currentTitle += content
         elif self.inText:
             # Always append text content, even if it's just whitespace or newlines
             self.currentText.append(content)
 
-    async def _process(self, text: str, uid: str):
+    async def _process(self, text: str, uid: str, title: str):
         parser = WikivoyageParser()
         entry = parser.parse(text)
+        entry['properties']['title'] = title
         await self.handler.write_entry(entry, uid)
 
-    async def _bounded_process(self, text: str, uid: str):
+    async def _bounded_process(self, text: str, uid: str, title: str):
         # Only run N at once
         async with self.sem:
-            await self._process(text, uid)
+            await self._process(text, uid, title)
