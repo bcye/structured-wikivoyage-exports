@@ -10,8 +10,9 @@ class BunnyStorageHandler(BaseHandler):
         api_key: str,
         fail_on_error: bool = True,
         keepalive_timeout: int = 75,
+        **kwargs,
     ):
-        super().__init__(fail_on_error=fail_on_error)
+        super().__init__(fail_on_error=fail_on_error, **kwargs)
         self.base_url = f"https://{region}.bunnycdn.com/{base_path}"
         self.headers = {
             "AccessKey": api_key,
