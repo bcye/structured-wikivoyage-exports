@@ -7,7 +7,7 @@
     "bcye",
     "moll-re"
   ],
-  "license": "AGPL-3.0-or-later",
+  "license": "MIT",c
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bcye/structured-wikivoyage-exports.git"
