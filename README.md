@@ -18,7 +18,7 @@ See [docs](docs) for more information on how to use this utility.
 
 ## Testing
 
-Run `PYTHONPATH=. pytest` from inside the venv
+Run `PYTHONPATH=src pytest` from inside the venv, or directly call `PYTHONPATH=src uv run -- pytest`.
 
 ## License
 
