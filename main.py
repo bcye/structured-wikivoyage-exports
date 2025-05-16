@@ -40,7 +40,7 @@ def gather_handler_kwargs(handler_name: str) -> dict:
 
 
 async def process_dump(
-    mappings: dict[str, str], handlers, max_concurrent: int
+    mappings: dict[str, str], handlers
 ):
     """
     Stream-download the bzip2-compressed XML dump and feed to SAX.
@@ -52,7 +52,7 @@ async def process_dump(
     )
     decomp = bz2.BZ2Decompressor()
     sax_parser = xml.sax.make_parser()
-    dump_handler = WikiDumpHandler(mappings, handlers, max_concurrent)
+    dump_handler = WikiDumpHandler(mappings, handlers)
     sax_parser.setContentHandler(dump_handler)
 
     async with aiohttp.ClientSession() as session:
@@ -75,9 +75,18 @@ async def main():
         logger.error("Error: set ENV HANDLER (e.g. 'filesystem' or 'filesystem,sftp')")
         sys.exit(1)
 
+    # 2. Read concurrency setting
+    try:
+        max_conc = int(os.getenv("MAX_CONCURRENT", "0"))
+    except ValueError:
+        raise ValueError("MAX_CONCURRENT must be an integer")
+
+    if max_conc < 0:
+        raise ValueError("MAX_CONCURRENT must be >= 0")
+        
     handlers = []
     
-    # 2. Load each handler
+    # 3. Load each handler
     for handler_name in handler_names:
         handler_name = handler_name.strip()
         if not handler_name:
@@ -102,19 +111,13 @@ async def main():
 
         # Build kwargs from ENV
         handler_kwargs = gather_handler_kwargs(handler_name)
+        
+        # Add max_concurrent to kwargs
+        handler_kwargs["max_concurrent"] = max_conc
 
         # Instantiate
         handler = HandlerCls(**handler_kwargs)
         handlers.append(handler)
-
-    # 3. read concurrency setting
-    try:
-        max_conc = int(os.getenv("MAX_CONCURRENT", "0"))
-    except ValueError:
-        raise ValueError("MAX_CONCURRENT must be an integer")
-
-    if max_conc < 0:
-        raise ValueError("MAX_CONCURRENT must be >= 0")
 
     # 4. Fetch mappings
     logger.info("Fetching mappings from SQL dump…")
@@ -123,7 +126,7 @@ async def main():
 
     # 5. Stream & split the XML dump
     logger.info("Processing XML dump…")
-    await process_dump(mappings, handlers, max_conc)
+    await process_dump(mappings, handlers)  # Pass 0 as max_concurrent since handlers handle it
 
     # 6. Finish up
     await asyncio.gather(*[handler.close() for handler in handlers])

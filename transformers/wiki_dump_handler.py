@@ -12,14 +12,11 @@ class WikiDumpHandler(xml.sax.ContentHandler):
     and write via the user‐supplied handler(s).
     """
 
-    def __init__(self, mappings, handlers, max_concurrent):
+    def __init__(self, mappings, handlers):
         super().__init__()
         self.mappings = mappings
         # Support a single handler or a list of handlers
         self.handlers = handlers
-        self.sem = (
-            asyncio.Semaphore(max_concurrent) if max_concurrent > 0 else None
-        )
         self.tasks: list[asyncio.Task] = []
 
         self.currentTag: str | None = None
@@ -55,10 +52,7 @@ class WikiDumpHandler(xml.sax.ContentHandler):
                 title = self.currentTitle
                 logger.debug(f"scheduled {wd_id} for handling")
                 # schedule processing
-                if self.sem:
-                    task = asyncio.create_task(self._bounded_process(text, wd_id, title))
-                else:
-                    task = asyncio.create_task(self._process(text, wd_id, title))
+                task = asyncio.create_task(self._process(text, wd_id, title))
                 self.tasks.append(task)
             else:
                 logger.debug(f"page {pid} without wikidata id, skipping...")
@@ -104,8 +98,3 @@ class WikiDumpHandler(xml.sax.ContentHandler):
         await asyncio.gather(*[
             handler.write_entry(entry, uid) for handler in self.handlers
         ])
-
-    async def _bounded_process(self, text: str, uid: str, title: str):
-        # Only run N at once
-        async with self.sem:
-            await self._process(text, uid, title)
