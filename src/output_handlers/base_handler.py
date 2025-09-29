@@ -1,6 +1,7 @@
 """Reference handler for output handlers."""
 from abc import ABC, abstractmethod
 import logging
+import asyncio
 
 
 
@@ -14,15 +15,20 @@ class BaseHandler(ABC):
     _successful_writes = 0
     _failed_writes = 0
 
-    def __init__(self, fail_on_error: bool = True, **kwargs):
+    def __init__(self, fail_on_error: bool = True, max_concurrent=0, **kwargs):
         """
         Initializes the BaseHandler with optional parameters.
 
         Args:
             fail_on_error (bool): If True, the handler will raise an exception on error. Defaults to True.
+            max_concurrent: Maximum number of concurrent write operations.
+                            0 means unlimited concurrency.
             **kwargs: Additional keyword arguments for specific handler implementations.
         """
         self.fail_on_error = fail_on_error
+        self.semaphore = None
+        if max_concurrent > 0:
+            self.semaphore = asyncio.Semaphore(max_concurrent)
 
 
     @abstractmethod
@@ -47,7 +53,11 @@ class BaseHandler(ABC):
             entry (dict): The entry to write (will be JSON-encoded).
             uid (str): The unique identifier for the entry. The default id provided by wikivoyage is recommended. 
         """
-        success = await self._write_entry(entry, uid)
+        if self.semaphore:
+            async with self.semaphore:
+                success = await self._write_entry(entry, uid)
+        else:
+            success = await self._write_entry(entry, uid)
         if success:
             self.logger.debug(f"Successfully wrote entry with UID {uid}")
             self._successful_writes += 1

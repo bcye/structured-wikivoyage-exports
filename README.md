@@ -26,7 +26,7 @@ Run `PYTHONPATH=src pytest` from inside the venv, or directly call `PYTHONPATH=s
 
 (c) 2025 bcye and moll-re
 
-All code and documentation unless otherwise stated is licensed under the AGPLv3 license, refer to [LICENSE](LICENSE) for the full license text.
+All code and documentation unless otherwise stated is licensed under the AGPLv3 license, refer to [LICENSE](LICENSE) for the full license text. The types package and all its code is [licensed under MIT](types/LICENSE).
 
 ### Examples
 
