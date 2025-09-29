@@ -7,4 +7,6 @@ RUN uv sync --frozen
 
 COPY . .
 
+RUN chmod +x entrypoint.sh
+
 CMD ["./entrypoint.sh"]
