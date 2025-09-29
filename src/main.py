@@ -83,15 +83,15 @@ async def main():
 
     if max_conc < 0:
         raise ValueError("MAX_CONCURRENT must be >= 0")
-        
+
     handlers = []
-    
+
     # 3. Load each handler
     for handler_name in handler_names:
         handler_name = handler_name.strip()
         if not handler_name:
             continue
-            
+
         # Dynamic import
         module_path = f"output_handlers.{handler_name}"
         try:
@@ -111,12 +111,12 @@ async def main():
 
         # Build kwargs from ENV
         handler_kwargs = gather_handler_kwargs(handler_name)
-        
+
         # Add max_concurrent to kwargs
         handler_kwargs["max_concurrent"] = max_conc
 
         # Instantiate
-        handler = HandlerCls(**handler_kwargs)
+        handler = await HandlerCls.create(**handler_kwargs)
         handlers.append(handler)
 
     # 4. Fetch mappings
