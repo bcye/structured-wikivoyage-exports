@@ -7,4 +7,6 @@ RUN uv sync --frozen
 
 COPY . .
 
-CMD ["uv", "run", "main.py"]
+RUN chmod +x entrypoint.sh
+
+CMD ["./entrypoint.sh"]
