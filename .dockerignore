@@ -1,8 +1,0 @@
-.env
-__pycache__
-.venv
-.pytest_cache
-docs
-node_modules
-output
-sketching

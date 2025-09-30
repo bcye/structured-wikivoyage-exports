@@ -5,6 +5,7 @@ from .parser import WikivoyageParser
 
 logger = getLogger(__name__)
 
+
 class WikiDumpHandler(xml.sax.ContentHandler):
     """
     SAX handler that, for each <page> whose <id> is in mappings,
@@ -92,9 +93,9 @@ class WikiDumpHandler(xml.sax.ContentHandler):
     async def _process(self, text: str, uid: str, title: str):
         parser = WikivoyageParser()
         entry = parser.parse(text)
-        entry['properties']['title'] = title
-        
+        entry["properties"]["title"] = title
+
         # Write to all handlers concurrently
-        await asyncio.gather(*[
-            handler.write_entry(entry, uid) for handler in self.handlers
-        ])
+        await asyncio.gather(
+            *[handler.write_entry(entry, uid) for handler in self.handlers]
+        )
