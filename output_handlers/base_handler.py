@@ -15,7 +15,9 @@ class BaseHandler(ABC):
     _successful_writes = 0
     _failed_writes = 0
 
-    def __init__(self, fail_on_error: bool = True, max_concurrent=0, **kwargs):
+    @classmethod
+    @abstractmethod
+    async def create(cls, fail_on_error: bool = True, max_concurrent=0, **kwargs) -> "BaseHandler":
         """
         Initializes the BaseHandler with optional parameters.
 
@@ -25,10 +27,12 @@ class BaseHandler(ABC):
                             0 means unlimited concurrency.
             **kwargs: Additional keyword arguments for specific handler implementations.
         """
+        self = cls(**kwargs)
         self.fail_on_error = fail_on_error
         self.semaphore = None
         if max_concurrent > 0:
             self.semaphore = asyncio.Semaphore(max_concurrent)
+        return self
 
 
     @abstractmethod
@@ -38,7 +42,7 @@ class BaseHandler(ABC):
 
         Args:
             entry (dict): The entry to write (will be JSON-encoded).
-            uid (str): The unique identifier for the entry. The default id provided by wikivoyage is recommended. 
+            uid (str): The unique identifier for the entry. The default id provided by wikivoyage is recommended.
         Returns:
             bool: True if the entry was written successfully, False otherwise.
         """
@@ -51,7 +55,7 @@ class BaseHandler(ABC):
 
         Args:
             entry (dict): The entry to write (will be JSON-encoded).
-            uid (str): The unique identifier for the entry. The default id provided by wikivoyage is recommended. 
+            uid (str): The unique identifier for the entry. The default id provided by wikivoyage is recommended.
         """
         if self.semaphore:
             async with self.semaphore:
