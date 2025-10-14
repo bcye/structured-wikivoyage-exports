@@ -32,6 +32,7 @@ class BaseHandler(ABC):
         self.semaphore = None
         if max_concurrent > 0:
             self.semaphore = asyncio.Semaphore(max_concurrent)
+        self.logger.info(f"Handler initialized with fail_on_error={self.fail_on_error}, max_concurrent={max_concurrent}")
         return self
 
 

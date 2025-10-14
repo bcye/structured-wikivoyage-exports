@@ -1,9 +1,7 @@
 """Handler that writes asynchronously."""
 from .base_handler import BaseHandler
 import json
-import aiobotocore
-from aiobotocore.session import get_session
-from asyncio import TimeoutError
+from aiobotocore.session import AioSession
 from contextlib import AsyncExitStack
 
 class S3Handler(BaseHandler):
@@ -21,10 +19,9 @@ class S3Handler(BaseHandler):
         self = await super().create(**kwargs)
         self.bucket_name = bucket_name
 
-        self.session = get_session()
         self.exit_stack = AsyncExitStack()
 
-        session = aiobotocore.session.AioSession()
+        session = AioSession()
         self.client = await self.exit_stack.enter_async_context(
             session.create_client(
                 service_name = 's3',
@@ -54,24 +51,21 @@ class S3Handler(BaseHandler):
         data = json.dumps(entry).encode('utf-8')
         try:
             response = await self.client.put_object(
-                Bucket=self.bucket_name,
-                Key=f"{uid}.json",
-                Body=data
+                Bucket = self.bucket_name,
+                Key = f"{uid}.json",
+                Body = data
             )
 
-        except TimeoutError:
-            self.logger.error(f"Timeout error while writing entry {uid} to bucket {self.bucket_name}.")
-            return False
-
-        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-            self.logger.info(f"Successfully wrote entry {uid} to bucket {self.bucket_name}.")
+            if response['ResponseMetadata']['HTTPStatusCode'] not in (200, 201):
+                raise Exception(f"Response: {response}")
             return True
-        else:
-            self.logger.error(f"Failed to write entry {uid} to bucket {self.bucket_name}. Status code: {response['ResponseMetadata']['HTTPStatusCode']}")
+
+        except:
+            self.logger.exception(f"Failed to write entry {uid} to bucket {self.bucket_name}.")
             return False
 
 
     async def close(self):
         await self.client.close()
-        await self._exit_stack.__aexit__(None, None, None)
+        await self.exit_stack.__aexit__(None, None, None)
         await super().close()

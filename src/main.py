@@ -54,8 +54,8 @@ async def process_dump(
     sax_parser = xml.sax.make_parser()
     dump_handler = WikiDumpHandler(mappings, handlers)
     sax_parser.setContentHandler(dump_handler)
-
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total = 5000)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(xml_url) as resp:
             resp.raise_for_status()
             async for chunk in resp.content.iter_chunked(1024 * 1024):

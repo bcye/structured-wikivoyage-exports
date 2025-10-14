@@ -97,5 +97,6 @@ class WikiDumpHandler(xml.sax.ContentHandler):
 
         # Write to all handlers concurrently
         await asyncio.gather(
-            *[handler.write_entry(entry, uid) for handler in self.handlers]
+            *[handler.write_entry(entry, uid) for handler in self.handlers],
+            return_exceptions = True,
         )
