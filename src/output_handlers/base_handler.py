@@ -14,6 +14,8 @@ class BaseHandler(ABC):
     logger = logging.getLogger(__name__)
     _successful_writes = 0
     _failed_writes = 0
+    fail_on_error: bool
+    semaphore: asyncio.Semaphore = None
 
     @classmethod
     @abstractmethod
@@ -27,13 +29,12 @@ class BaseHandler(ABC):
                             0 means unlimited concurrency.
             **kwargs: Additional keyword arguments for specific handler implementations.
         """
-        self = cls(**kwargs)
-        self.fail_on_error = fail_on_error
-        self.semaphore = None
+        obj = cls(**kwargs)
+        obj.fail_on_error = fail_on_error
         if max_concurrent > 0:
-            self.semaphore = asyncio.Semaphore(max_concurrent)
-        self.logger.info(f"Handler initialized with fail_on_error={self.fail_on_error}, max_concurrent={max_concurrent}")
-        return self
+            obj.semaphore = asyncio.Semaphore(max_concurrent)
+        obj.logger.info(f"Handler initialized with fail_on_error={obj.fail_on_error}, max_concurrent={max_concurrent}")
+        return obj
 
 
     @abstractmethod

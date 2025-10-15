@@ -2,12 +2,17 @@
 from .base_handler import BaseHandler
 import json
 from aiobotocore.session import AioSession
+from aiobotocore.client import AioBaseClient
 from contextlib import AsyncExitStack
 
 class S3Handler(BaseHandler):
     """
     Handler that writes files to an S3 bucket asynchronously.
     """
+    bucket_name: str
+    client: AioBaseClient
+    exit_stack: AsyncExitStack
+
     @classmethod
     async def create(cls, url: str, access_key: str, secret_key: str, bucket_name: str, **kwargs) -> "S3Handler":
         """
@@ -16,13 +21,13 @@ class S3Handler(BaseHandler):
         Args:
             **kwargs: Additional keyword arguments for the BaseHandler.
         """
-        self = await super().create(**kwargs)
-        self.bucket_name = bucket_name
+        obj = await super().create(**kwargs)
+        obj.bucket_name = bucket_name
 
-        self.exit_stack = AsyncExitStack()
+        obj.exit_stack = AsyncExitStack()
 
         session = AioSession()
-        self.client = await self.exit_stack.enter_async_context(
+        obj.client = await obj.exit_stack.enter_async_context(
             session.create_client(
                 service_name = 's3',
                 # region_name='us-west-2',
@@ -32,8 +37,8 @@ class S3Handler(BaseHandler):
             )
         )
 
-        await self._ensure_bucket_exists()
-        return self
+        await obj._ensure_bucket_exists()
+        return obj
 
 
     async def _ensure_bucket_exists(self):

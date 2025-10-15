@@ -3,38 +3,39 @@ import aiohttp
 from .base_handler import BaseHandler
 
 class BunnyStorageHandler(BaseHandler):
-    def __init__(
-        self,
+
+    base_url: str
+    headers: dict
+    _session: aiohttp.ClientSession
+    _connector: aiohttp.TCPConnector
+
+    @classmethod
+    async def create(
+        cls,
         region: str,
         base_path: str,
         api_key: str,
-        fail_on_error: bool = True,
         keepalive_timeout: int = 75,
         **kwargs,
-    ):
-        super().__init__(fail_on_error=fail_on_error, **kwargs)
-        self.base_url = f"https://{region}.bunnycdn.com/{base_path}"
-        self.headers = {
+    ) -> "BunnyStorageHandler":
+        obj = await super().create(**kwargs)
+        obj.base_url = f"https://{region}.bunnycdn.com/{base_path}"
+        obj.headers = {
             "AccessKey": api_key,
             "Content-Type": "application/json",
             "accept": "application/json",
         }
 
-        # initialized later, in a guaranteed async context
-        self._connector = None
-        self._session = None
-        self._keepalive_timeout = keepalive_timeout
+        # setup the aiohttp session and connector
+        obj._connector = aiohttp.TCPConnector(
+            # limit is implicitly set to 100
+            keepalive_timeout = keepalive_timeout,
+        )
+        obj._session = aiohttp.ClientSession(connector=obj._connector)
+        return obj
 
-    async def setup_connector(self):
-        if self._session is None:
-            self._connector = aiohttp.TCPConnector(
-                # limit is implicitly set to 100
-                keepalive_timeout = self._keepalive_timeout,
-            )
-            self._session = aiohttp.ClientSession(connector=self._connector)
 
     async def _write_entry(self, entry: dict, uid: str) -> bool:
-        await self.setup_connector()
         payload = json.dumps(entry).encode("utf-8")
         url = f"{self.base_url}/{uid}.json"
 
@@ -49,6 +50,7 @@ class BunnyStorageHandler(BaseHandler):
         except Exception:
             self.logger.exception(f"Exception while uploading UID={uid}")
             return False
+
 
     async def close(self):
         await self._session.close()
