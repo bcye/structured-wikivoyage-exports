@@ -54,8 +54,8 @@ async def process_dump(
     sax_parser = xml.sax.make_parser()
     dump_handler = WikiDumpHandler(mappings, handlers)
     sax_parser.setContentHandler(dump_handler)
-
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total = 5000)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(xml_url) as resp:
             resp.raise_for_status()
             async for chunk in resp.content.iter_chunked(1024 * 1024):
@@ -83,15 +83,15 @@ async def main():
 
     if max_conc < 0:
         raise ValueError("MAX_CONCURRENT must be >= 0")
-        
+
     handlers = []
-    
+
     # 3. Load each handler
     for handler_name in handler_names:
         handler_name = handler_name.strip()
         if not handler_name:
             continue
-            
+
         # Dynamic import
         module_path = f"output_handlers.{handler_name}"
         try:
@@ -111,12 +111,12 @@ async def main():
 
         # Build kwargs from ENV
         handler_kwargs = gather_handler_kwargs(handler_name)
-        
+
         # Add max_concurrent to kwargs
         handler_kwargs["max_concurrent"] = max_conc
 
         # Instantiate
-        handler = HandlerCls(**handler_kwargs)
+        handler = await HandlerCls.create(**handler_kwargs)
         handlers.append(handler)
 
     # 4. Fetch mappings

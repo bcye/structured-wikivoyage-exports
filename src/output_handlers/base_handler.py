@@ -14,8 +14,12 @@ class BaseHandler(ABC):
     logger = logging.getLogger(__name__)
     _successful_writes = 0
     _failed_writes = 0
+    fail_on_error: bool
+    semaphore: asyncio.Semaphore = None
 
-    def __init__(self, fail_on_error: bool = True, max_concurrent=0, **kwargs):
+    @classmethod
+    @abstractmethod
+    async def create(cls, fail_on_error: bool = True, max_concurrent=0, **kwargs) -> "BaseHandler":
         """
         Initializes the BaseHandler with optional parameters.
 
@@ -25,10 +29,12 @@ class BaseHandler(ABC):
                             0 means unlimited concurrency.
             **kwargs: Additional keyword arguments for specific handler implementations.
         """
-        self.fail_on_error = fail_on_error
-        self.semaphore = None
+        obj = cls(**kwargs)
+        obj.fail_on_error = fail_on_error
         if max_concurrent > 0:
-            self.semaphore = asyncio.Semaphore(max_concurrent)
+            obj.semaphore = asyncio.Semaphore(max_concurrent)
+        obj.logger.info(f"Handler initialized with fail_on_error={obj.fail_on_error}, max_concurrent={max_concurrent}")
+        return obj
 
 
     @abstractmethod
@@ -38,7 +44,7 @@ class BaseHandler(ABC):
 
         Args:
             entry (dict): The entry to write (will be JSON-encoded).
-            uid (str): The unique identifier for the entry. The default id provided by wikivoyage is recommended. 
+            uid (str): The unique identifier for the entry. The default id provided by wikivoyage is recommended.
         Returns:
             bool: True if the entry was written successfully, False otherwise.
         """
@@ -51,7 +57,7 @@ class BaseHandler(ABC):
 
         Args:
             entry (dict): The entry to write (will be JSON-encoded).
-            uid (str): The unique identifier for the entry. The default id provided by wikivoyage is recommended. 
+            uid (str): The unique identifier for the entry. The default id provided by wikivoyage is recommended.
         """
         if self.semaphore:
             async with self.semaphore:

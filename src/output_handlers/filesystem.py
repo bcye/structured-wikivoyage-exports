@@ -8,7 +8,10 @@ class FilesystemHandler(BaseHandler):
     """
     Handler that writes files to the filesystem.
     """
-    def __init__(self, output_dir: str, **kwargs):
+    output_dir: Path
+
+    @classmethod
+    async def create(cls, output_dir: str, **kwargs) -> "FilesystemHandler":
         """
         Initializes the FileSystemHandler with the specified output directory.
 
@@ -16,11 +19,12 @@ class FilesystemHandler(BaseHandler):
             output_dir (str): The directory where files will be written.
             **kwargs: Additional keyword arguments for the BaseHandler.
         """
-        super().__init__(**kwargs)
-        self.output_dir = Path(output_dir)
+        obj = await super().create(**kwargs)
+        obj.output_dir = Path(output_dir)
         # Ensure the target directory exists
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.logger.info(f"Output directory set to {self.output_dir}")
+        obj.output_dir.mkdir(parents=True, exist_ok=True)
+        obj.logger.info(f"Output directory set to {obj.output_dir}")
+        return obj
 
 
     async def _write_entry(self, entry: dict, uid: str) -> bool:
