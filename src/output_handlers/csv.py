@@ -39,7 +39,6 @@ class CsvHandler(BaseHandler):
 
         # open the file and keep it open for appending
         obj.file_writer = await aiofiles.open(output_path, mode='a', encoding='utf-8')
-        # this has type
 
         return obj
 
