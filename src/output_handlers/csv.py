@@ -11,7 +11,7 @@ class CsvHandler(BaseHandler):
     rather than writing the entire JSON document.
     """
 
-    file_writer: any # I believe aiofiles doesn't expose a type for this
+    file_writer: object # I believe aiofiles doesn't expose a type for this
 
     @classmethod
     async def create(
@@ -23,7 +23,7 @@ class CsvHandler(BaseHandler):
         Initializes the CSVHandler.
 
         Args:
-            output_path (str): Path to the CSV file to write to.
+            output_path (Path): Path to the CSV file to write to.
             **kwargs: Additional keyword arguments.
         """
         obj = await super().create(**kwargs)
