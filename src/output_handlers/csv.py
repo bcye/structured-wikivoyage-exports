@@ -29,7 +29,7 @@ class CsvHandler(BaseHandler):
         obj = await super().create(**kwargs)
         output_path = Path(output_path)
 
-        # Create the containging directory if it doesn't exist
+        # Create the containing directory if it doesn't exist
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Create file with header if it doesn't exist
@@ -64,7 +64,7 @@ class CsvHandler(BaseHandler):
             await self.file_writer.write(f'"{uid}","{title}"\n')
 
             return True
-        except Exception as e:
+        except Exception:
             self.logger.exception(f"Error writing entry {uid} to CSV.")
             return False
 
